@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/router'; // Import useRouter for redirection
+// import { useRouter } from 'next/router';
+import { useRouter } from "next/navigation";
 import { createUserWithEmailAndPassword, sendEmailVerification } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
 import { auth, db } from '@/app/firebase/config';
@@ -11,9 +12,9 @@ const SignUpWithEmailAndPassword = () => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [emailSent, setEmailSent] = useState(false);
-  const router = useRouter(); // Create an instance of useRouter
+  const router = useRouter();
 
-  // Create the user with email and password
+
   const createUser = async () => {
     if (!email || !password) {
       setError('Email and password are required.');
@@ -26,13 +27,10 @@ const SignUpWithEmailAndPassword = () => {
     }
 
     try {
-      // Create the user
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
 
-      // Send email verification
       await sendEmailVerification(userCredential.user);
 
-      // Save user to Firestore
       const userRef = doc(db, 'users', userCredential.user.uid);
       await setDoc(userRef, {
         email,
@@ -43,10 +41,9 @@ const SignUpWithEmailAndPassword = () => {
       setEmailSent(true);
       setError(null);
 
-      // Redirect the user to the sign-in page after successful registration
       setTimeout(() => {
-        router.push('/sign-in'); // Redirect to the sign-in page
-      }, 2000); // You can adjust the timeout duration if needed
+        router.push('/sign-in');
+      }, 2000);
     } catch (e) {
       console.error(e);
       setError('Failed to create user. Please try again.');

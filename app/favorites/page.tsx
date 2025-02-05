@@ -3,13 +3,12 @@
 import { useState, useEffect } from 'react';
 import { columns } from '@/components/tables/prospects/columns';
 import { DataTable } from '@/components/tables/prospects/data-table';
-// import { db } from '@/lib/firebase/firestore'; // Ensure this is correctly imported
 import { auth } from '@/app/firebase/config';
 import { doc, getDoc } from 'firebase/firestore';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import {firebaseConfig, app, db} from '@/app/firebase/config';
 
-async function getFavorites(): Promise<{ prospects: any[] }> {
+async function getFavorites(authUser: String): Promise<{ prospects: any[] }> {
   try {
     const user = auth.currentUser;
     if (!user) {
@@ -35,8 +34,6 @@ async function getFavorites(): Promise<{ prospects: any[] }> {
       console.warn('No favorite prospects found in Firestore.');
       return { prospects: [] };
     }
-
-    console.log('Favorite Prospects:', favorites); // Debugging
 
     // Fetch the prospect data from the MLB API
     const prospects = await Promise.all(
@@ -81,11 +78,9 @@ export default function FavoritesPage() {
       if (authUser) {
         setUser(authUser);
         const data = await getFavorites(authUser.uid);
+
+        data.prospects.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
   
-        // Sort the prospects in ascending order (oldest first)
-        data.prospects.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
-  
-        // Reverse the sorted array to display from bottom to top
         data.prospects.reverse();
   
         setFavoritesData(data);

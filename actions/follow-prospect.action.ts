@@ -16,14 +16,13 @@ export async function followProspectAction(userId: string, prospectId: string, i
     }
 
     if (isFavorite) {
-      // Unfollow: Remove prospectId from the favorites array and update favoriteStatus
       await updateDoc(userDocRef, {
         favorites: arrayRemove(prospectId),
         [`favoriteStatus.${prospectId}`]: false, // Set isFavorite to false
       });
       return {
         status: "success",
-        isFavorite: false, // Reflect the updated status
+        isFavorite: false,
         message: "Prospect unfollowed successfully",
       };
     } else {

@@ -2,10 +2,11 @@
 
 import { useState, useEffect } from "react";
 import { Star } from "lucide-react";
-import { getFirestore, setDoc, doc, getDoc, updateDoc, arrayUnion } from "firebase/firestore";
+import { getFirestore, setDoc, doc, getDoc, updateDoc, arrayUnion, arrayRemove } from "firebase/firestore";
 import { app } from "@/app/firebase/config";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 import { useToast } from "@/hooks/use-toast";
+import { User } from "firebase/auth";
 
 interface StarRatingProps {
   prospectId: string;
@@ -17,11 +18,13 @@ const StarRating: React.FC<StarRatingProps> = ({ prospectId, totalStars = 5 }) =
   const [hoverRating, setHoverRating] = useState<number | null>(null);
   const [averageRating, setAverageRating] = useState<number>(0);
   const [ratingCount, setRatingCount] = useState<number>(0);
-  const [user, setUser] = useState<firebase.User | null>(null);
+  const [totalStarsGiven, setTotalStarsGiven] = useState<number>(0); // Total stars given for the prospect
+  const [user, setUser] = useState<User | null>(null);
   const db = getFirestore(app);
   const auth = getAuth();
   const { toast } = useToast();
 
+  // Listen for changes to the user's authentication state
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
@@ -29,8 +32,8 @@ const StarRating: React.FC<StarRatingProps> = ({ prospectId, totalStars = 5 }) =
     return () => unsubscribe();
   }, [auth]);
 
+  // Fetch the prospect data and calculate the average rating
   useEffect(() => {
-    // Fetch the prospect data from Firestore
     const fetchProspectRating = async () => {
       const docRef = doc(db, "prospects", prospectId);
       const docSnap = await getDoc(docRef);
@@ -39,8 +42,11 @@ const StarRating: React.FC<StarRatingProps> = ({ prospectId, totalStars = 5 }) =
         const ratings: number[] = data?.ratings || [];
         const totalRatings = ratings.length;
         const avgRating = totalRatings > 0 ? ratings.reduce((a, b) => a + b, 0) / totalRatings : 0;
+        const totalStarsGiven = ratings.reduce((a, b) => a + b, 0); // Sum of all ratings (total stars given)
+        
         setRatingCount(totalRatings);
         setAverageRating(avgRating);
+        setTotalStarsGiven(totalStarsGiven); // Store total stars given
       }
     };
 
@@ -57,13 +63,39 @@ const StarRating: React.FC<StarRatingProps> = ({ prospectId, totalStars = 5 }) =
 
     try {
       const docRef = doc(db, "prospects", prospectId);
-      await updateDoc(docRef, { ratings: arrayUnion(starIndex) });
-      toast({ title: `Thanks for rating!` });
+      const docSnap = await getDoc(docRef); // Check if the document exists
 
-      setRatingCount((prevCount) => prevCount + 1);
-      setAverageRating((prevAverage) => (prevAverage * ratingCount + starIndex) / (ratingCount + 1));
+      if (!docSnap.exists()) {
+        // If the document doesn't exist, create it with the first rating
+        await setDoc(docRef, {
+          ratings: [starIndex], // Initialize with the first rating
+        });
+        toast({ title: `Thanks for rating!` });
+
+        setRatingCount(1); // Set the rating count to 1
+        setAverageRating(starIndex); // Set the average rating to the first rating
+        setTotalStarsGiven(starIndex); // Set the total stars to the first rating
+      } else {
+        // If the document exists, check if the user has already rated
+        const ratings: number[] = docSnap.data()?.ratings || [];
+        const userRating = ratings.find((rating) => rating === starIndex);
+
+        if (userRating) {
+          toast({ title: "You've already rated this prospect." });
+          return;
+        }
+
+        // If the user hasn't rated yet, update the document with the new rating
+        await updateDoc(docRef, { ratings: arrayUnion(starIndex) });
+        toast({ title: `Thanks for rating!` });
+
+        setRatingCount((prevCount) => prevCount + 1);
+        setTotalStarsGiven((prevTotal) => prevTotal + starIndex);
+        setAverageRating((prevAverage) => (prevAverage * ratingCount + starIndex) / (ratingCount + 1));
+      }
     } catch (error) {
       console.error("Error saving rating:", error);
+      toast({ title: "Error saving your rating. Please try again." });
     }
   };
 
@@ -84,10 +116,18 @@ const StarRating: React.FC<StarRatingProps> = ({ prospectId, totalStars = 5 }) =
       </div>
 
       <div className="text-sm text-gray-600">
-        <div className='text-sm text-white'>Average Rating: <span className='font-semibold'>{averageRating.toFixed(1)}</span> / {totalStars}</div>
+        <div className="text-sm text-white">
+          Average Rating: <span className="font-semibold">{averageRating.toFixed(1)}</span> / {totalStars}
+        </div>
+        <div className="text-sm text-white">
+          Total Stars Given: <span className="font-semibold">{totalStarsGiven}</span>
+        </div>
       </div>
+
       <div className="text-sm text-gray-600">
-        <div className='text-sm text-white'>{ratingCount} user{ratingCount === 1 ? ' has' : 's have'} rated this prospect.</div>
+        <div className="text-sm text-white">
+          {ratingCount} user{ratingCount === 1 ? " has" : "s have"} rated this prospect.
+        </div>
       </div>
     </div>
   );

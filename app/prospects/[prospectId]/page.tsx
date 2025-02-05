@@ -12,6 +12,11 @@ import { app } from '@/app/firebase/config';
 import { FollowButton } from './_components/follow-button';
 import StarRating from './_components/StarRating';
 
+interface SelectUser {
+  favoriteProspects: string[]; // or whatever type your favoriteProspects should be
+  // Other properties of the user
+}
+
 export default async function ProspectPage({
   params,
   searchParams,
@@ -26,9 +31,10 @@ export default async function ProspectPage({
     `${process.env.NEXT_PUBLIC_API_URL}/api/mlb/prospects/${prospectId}?teamId=${teamId}&year=${year}`
   );
   const data = await response.json();
-  let dbUser: SelectUser | null = null;
+  // let dbUser: SelectUser | null = null;
+  let dbUser: SelectUser = { favoriteProspects: [] }; // default value
 
-  // Handle Firebase Firestore integration
+
   const handleRatingChange = async (rating: number) => {
     const db = getFirestore(app);
     try {
@@ -85,8 +91,8 @@ export default async function ProspectPage({
                       <p className="text-xl text-white font-bold">{data.team?.name}</p>
                     </div>
                     <div className="flex items-center mt-4 gap-4">
-                      <FollowButton favoriteProspects={dbUser?.favoriteProspects ?? []} prospectId={prospectId} />
-                      <StarRating prospectId={prospectId} />
+                    <FollowButton favoriteProspects={dbUser?.favoriteProspects ?? []} prospectId={prospectId} />
+                    <StarRating prospectId={prospectId} />
                     </div>
                   </div>
                 </div>
